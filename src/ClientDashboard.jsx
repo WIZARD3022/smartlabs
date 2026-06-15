@@ -1,13 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useMemo, useState } from 'react';
 
-const defaultMaterials = [
-  { name: 'PLA+' },
-  { name: 'PETG' },
-  { name: 'TPU' },
-  { name: 'ABS' },
-];
-
 const defaultSlots = [
   { time: '09:00 AM - 11:00 AM', status: 'Booked' },
   { time: '11:00 AM - 01:00 PM', status: 'Available' },
@@ -23,6 +16,7 @@ export default function ClientDashboard({ user, token, onLogout }) {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [quote, setQuote] = useState(null);
+  const [materials, setMaterials] = useState([]);
   const [selectedMaterial, setSelectedMaterial] = useState('PLA+');
   const [selectedSlot, setSelectedSlot] = useState(defaultSlots[1].time);
   const [bookingStatus, setBookingStatus] = useState('');
@@ -31,6 +25,23 @@ export default function ClientDashboard({ user, token, onLogout }) {
   const [loading, setLoading] = useState(false);
 
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+  useEffect(() => {
+    async function loadMaterials() {
+      try {
+        const res = await axios.get('http://localhost:5000/api/materials', { headers: authHeaders });
+        const materialList = res.data || [];
+        setMaterials(materialList);
+        if (materialList.length && !materialList.find((item) => item.name === selectedMaterial)) {
+          setSelectedMaterial(materialList[0].name);
+        }
+      } catch (error) {
+        console.warn('Unable to load materials:', error.message);
+      }
+    }
+
+    loadMaterials();
+  }, [authHeaders, selectedMaterial]);
 
   useEffect(() => {
     async function loadPrinters() {

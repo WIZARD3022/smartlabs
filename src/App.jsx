@@ -1,21 +1,44 @@
 import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminDashboard from './AdminDashboard';
 import ClientDashboard from './ClientDashboard';
 
 export default function SmartLabPortal() {
-  
-  const [email, setEmail] = useState('');   //CLIENT LOGIN UI
-  const [password, setPassword] = useState('');   //CLIENT LOGIN UI
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
+  const [printers, setPrinters] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [bookings, setBookings] = useState([]);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const [printerRes, materialRes, bookingRes] = await Promise.all([
+          axios.get('http://localhost:5000/api/printers'),
+          axios.get('http://localhost:5000/api/materials'),
+          axios.get('http://localhost:5000/api/bookings'),
+        ]);
+
+        setPrinters(printerRes.data.printers || []);
+        setMaterials(materialRes.data || []);
+        setBookings(bookingRes.data || []);
+      } catch (error) {
+        console.warn('Dashboard data load failed:', error.message);
+      }
+    }
+
+    loadDashboardData();
+  }, []);
 
   const testBackend = async () => {
-  const res = await axios.get('http://localhost:5000');
-  alert(res.data);
-};
-const loginUser = async () => {
+    const res = await axios.get('http://localhost:5000');
+    alert(res.data);
+  };
+
+  const loginUser = async () => {
   console.log('Login payload:', { email, password });
 
   if (!email || !password) {
@@ -104,56 +127,7 @@ const uploadFile = async (e) => { //File Upload Function
   const [selectedColor, setSelectedColor] = useState('White');
   const [quote, setQuote] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const printers = [
-    {
-      name: 'Bambu Lab X1 Carbon',
-      status: 'Printing',
-      progress: 72,
-      eta: '1h 18m',
-      nozzle: '220°C',
-      bed: '60°C',
-      user: 'Medical Robotics Team',
-    },
-    {
-      name: 'Bambu Lab P1S',
-      status: 'Available',
-      progress: 0,
-      eta: '-',
-      nozzle: '32°C',
-      bed: '30°C',
-      user: '-',
-    },
-    {
-      name: 'Bambu Lab A1',
-      status: 'Maintenance',
-      progress: 0,
-      eta: '-',
-      nozzle: '0°C',
-      bed: '0°C',
-      user: 'Admin',
-    },
-  ];
-
-  const materials = [
-    {
-      name: 'PLA+',
-      colors: ['White', 'Black', 'Red', 'Grey'],
-      stock: '2.4 KG',
-      status: 'Available',
-    },
-    {
-      name: 'PETG',
-      colors: ['Black', 'Blue'],
-      stock: '0.8 KG',
-      status: 'Low Stock',
-    },
-    {
-      name: 'TPU',
-      colors: ['Red'],
-      stock: '0 KG',
-      status: 'Out of Stock',
-    },
-  ];
+  const [uploadedFile, setUploadedFile] = useState(null);
 
   const slots = [
     { time: '09:00 AM - 11:00 AM', status: 'Booked' },
@@ -164,7 +138,9 @@ const uploadFile = async (e) => { //File Upload Function
     { time: '06:00 PM - 08:00 PM', status: 'Available' },
   ];
 
-  const [uploadedFile, setUploadedFile] = useState(null);
+  const completedPrints = bookings.filter((booking) => booking.status === 'completed').length;
+  const scheduledJobs = bookings.length;
+  const totalMaterials = materials.length;
 
   const generateQuote = () => {
     const amount = Math.floor(Math.random() * 5000) + 2500;
@@ -329,10 +305,10 @@ if (user) {
       <section id="dashboard" className="max-w-7xl mx-auto px-6 py-14">
         <div className="grid md:grid-cols-4 gap-6">
           {[
-            ['42', 'Active Machines'],
-            ['128', 'Registered Users'],
-            ['24', 'Today Bookings'],
-            ['312', 'Completed Prints'],
+            [printers.length || '0', 'Active Machines'],
+            [totalMaterials || '0', 'Materials Available'],
+            [scheduledJobs || '0', 'Scheduled Jobs'],
+            [completedPrints || '0', 'Completed Prints'],
           ].map((item, index) => (
             <div key={index} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
               <h3 className="text-4xl font-bold text-cyan-600">{item[0]}</h3>

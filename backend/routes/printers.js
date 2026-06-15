@@ -1,25 +1,24 @@
 import express from 'express';
-import { printerFleet, printerLiveState, getPrinterById, updateLiveState } from '../data/printerData.js';
+import Printer from '../models/Printer.js';
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.json({ printers: printerFleet });
+router.get('/', async (req, res) => {
+  const printers = await Printer.find();
+  res.json({ printers });
 });
 
-router.get('/:printerId', (req, res) => {
-  const printer = getPrinterById(req.params.printerId);
-
+router.get('/:printerId', async (req, res) => {
+  const printer = await Printer.findOne({ id: req.params.printerId });
   if (!printer) {
     return res.status(404).json({ message: 'Printer not found' });
   }
 
-  const liveFeed = printerLiveState[req.params.printerId] || null;
-  res.json({ printer, liveFeed });
+  res.json({ printer });
 });
 
-router.post('/:printerId/control', (req, res) => {
-  const printer = getPrinterById(req.params.printerId);
+router.post('/:printerId/control', async (req, res) => {
+  const printer = await Printer.findOne({ id: req.params.printerId });
   const { action } = req.body;
 
   if (!printer) {
@@ -30,44 +29,67 @@ router.post('/:printerId/control', (req, res) => {
     return res.status(400).json({ message: 'Action is required' });
   }
 
-  let liveState = printerLiveState[req.params.printerId];
-
+  const updates = {};
   switch (action) {
     case 'start':
-      printer.status = 'Printing';
-      liveState = updateLiveState(req.params.printerId, {
-        status: 'Printing',
-        progress: Math.max(liveState?.progress || 0, 8),
-        timeRemaining: liveState?.estimatedTime || '2h 10m',
-        statusMessage: 'Print started',
-        currentFile: liveState?.currentFile || 'Unknown print file',
-        fileInfo: liveState?.fileInfo || 'Layer 1 / TBD',
-      });
+      updates.status = 'Printing';
+      updates.progress = Math.max(printer.progress || 0, 8);
+      updates.timeRemaining = printer.estimatedTime || '2h 10m';
+      updates.statusMessage = 'Print started';
+      updates.currentFile = printer.currentFile || 'Unknown print file';
+      updates.fileInfo = printer.fileInfo || 'Layer 1 / TBD';
       break;
     case 'pause':
-      printer.status = 'Paused';
-      liveState = updateLiveState(req.params.printerId, {
-        status: 'Paused',
-        statusMessage: 'Print paused',
-      });
+      updates.status = 'Paused';
+      updates.statusMessage = 'Print paused';
       break;
     case 'stop':
-      printer.status = 'Available';
-      liveState = updateLiveState(req.params.printerId, {
-        status: 'Available',
-        progress: 0,
-        timeRemaining: '-',
-        currentFile: '-',
-        estimatedTime: '-',
-        statusMessage: 'Printer idle',
-        fileInfo: 'No active file',
-      });
+      updates.status = 'Available';
+      updates.progress = 0;
+      updates.timeRemaining = '-';
+      updates.currentFile = '-';
+      updates.estimatedTime = '-';
+      updates.statusMessage = 'Printer idle';
+      updates.fileInfo = 'No active file';
       break;
     default:
       return res.status(400).json({ message: 'Invalid action' });
   }
 
-  res.json({ printer, liveFeed: liveState });
+  const updatedPrinter = await Printer.findOneAndUpdate({ id: req.params.printerId }, updates, {
+    new: true,
+  });
+
+  res.json({ printer: updatedPrinter });
+});
+
+router.post('/add', async (req, res) => {
+  try {
+    const printer = await Printer.create(req.body);
+    res.json(printer);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const printer = await Printer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!printer) return res.status(404).json({ error: 'Printer not found' });
+    res.json(printer);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const printer = await Printer.findByIdAndDelete(req.params.id);
+    if (!printer) return res.status(404).json({ error: 'Printer not found' });
+    res.json({ message: 'Printer deleted', printer });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 export default router;

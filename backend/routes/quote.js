@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPrinterById } from '../data/printerData.js';
+import Printer from '../models/Printer.js';
 
 const router = express.Router();
 const materialRatePerKg = {
@@ -19,7 +19,7 @@ function formatEta(minutes) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-function estimateQuote({ sizeBytes, material, printerId, quality }) {
+async function estimateQuote({ sizeBytes, material, printerId, quality }) {
   const baseWeight = Math.max(15, Math.round(sizeBytes / 14000));
   const supportWeight = Math.round(baseWeight * 0.14);
   const materialUsageGrams = baseWeight + supportWeight;
@@ -32,7 +32,7 @@ function estimateQuote({ sizeBytes, material, printerId, quality }) {
   const handlingFee = 120;
   const total = materialCost + machineCost + handlingFee;
 
-  const printer = getPrinterById(printerId);
+  const printer = await Printer.findOne({ id: printerId });
   const recommendedPrinter = printer ? printer.name : 'Bambu Lab X1 Carbon';
 
   return {
@@ -51,14 +51,14 @@ function estimateQuote({ sizeBytes, material, printerId, quality }) {
   };
 }
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { fileName, sizeBytes, material = 'PLA+', printerId, quality = 'standard' } = req.body;
 
   if (!fileName || !sizeBytes || !printerId) {
     return res.status(400).json({ message: 'fileName, sizeBytes, and printerId are required' });
   }
 
-  const quote = estimateQuote({ sizeBytes: Number(sizeBytes), material, printerId, quality });
+  const quote = await estimateQuote({ sizeBytes: Number(sizeBytes), material, printerId, quality });
 
   res.json({ quote, file: { fileName, sizeBytes }, requestedPrinter: printerId });
 });
