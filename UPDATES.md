@@ -1,5 +1,102 @@
 # SmartLabWebsite Updates
 
+## June 15, 2026 - Dashboard, Accounts, User Portal, and Printer API
+
+### Landing Page and Shared Authentication
+
+- Rebuilt the landing page into a responsive Smart Lab operations overview.
+- Added one shared authentication panel for both admin and user accounts.
+- Added a **Create account** mode to the shared authentication panel.
+- New accounts are created with the `client` role and routed to the user dashboard after sign-in.
+- Improved registration validation:
+  - Name, email, and password are required.
+  - Passwords must contain at least 8 characters.
+  - Emails are normalized to lowercase.
+  - Duplicate email registration is rejected.
+- Removed sensitive password and stack-trace logging from the registration route.
+
+### Admin Dashboard Redesign
+
+- Rebuilt the admin dashboard as a lighter, denser operations console.
+- Added compact metric cards for users, bookings, materials, and printers.
+- Improved responsive navigation and management tables.
+- Preserved existing material, printer, booking, and user CRUD actions.
+- Added printer inventory IDs and connection types to the printer table.
+- Added an admin form to configure Bambu Lab printer connections using:
+  - Printer IP address
+  - Serial number
+  - Access code
+- Added a **Sync** action for printers configured with the Bambu Labs API.
+
+### User Dashboard
+
+- Renamed and clarified the client experience as the **User Dashboard**.
+- Users can:
+  - Upload fabrication files
+  - Select materials and printers
+  - Request quotations
+  - Reserve print slots
+  - Monitor printer status
+  - Send available printer-control actions
+
+### Printer Catalog
+
+Added the supplied equipment catalog to `backend/data/printerCatalog.js`:
+
+1. `[R132781]` Bambu Lab A1 3D Printer
+2. `[R100462]` Bambu Lab P1S Combo 3D Printer
+3. `[R100463]` Bambu Lab P1S Multi-Colour 3D Printer
+4. `[R214287]` ELEGOO Saturn 4 Ultra 16K 3D Printer
+5. `[R190900]` Snapmaker Artisan 3-in-1 3D Printer
+6. `[1644429]` Creality K1 Max AI Speedy 3D Printer
+7. `[R256292]` Bambu Lab H2S AMS Combo 3D Printer
+
+- The catalog is synchronized on backend startup without removing existing printer records.
+- Bambu Lab printers default to the `bambulabs-api` provider.
+- Non-Bambu printers remain configured for manual integration.
+
+### Bambu Labs API Bridge
+
+- Added optional integration with [`bambulabs-api` version `2.6.6`](https://pypi.org/project/bambulabs-api/).
+- Added Python dependency file: `backend/requirements.txt`.
+- Added Python MQTT status bridge: `backend/scripts/bambu_status.py`.
+- Added Node-to-Python bridge service: `backend/services/bambuBridge.js`.
+- Added endpoint:
+  - `POST /api/printers/:printerId/sync` - fetch status from a configured Bambu Lab printer.
+- Extended the printer model with:
+  - `inventoryCode`
+  - `manufacturer`
+  - `apiProvider`
+  - `ipAddress`
+  - `serialNumber`
+  - Hidden `accessCode`
+- Printer access codes are excluded from normal API responses.
+
+To enable live Bambu printer synchronization:
+
+```powershell
+pip install -r backend/requirements.txt
+```
+
+Then configure each Bambu printer from the admin dashboard. Live synchronization requires the printer IP address, serial number, and LAN access code. The H2S integration requires validation with the physical printer.
+
+### Motion System
+
+- Added a fabrication-inspired motion system across the landing page, admin dashboard, and user dashboard.
+- Added staged entrance choreography for headings, metrics, login, and dashboard sections.
+- Added a scanner-pass animation over the lab visual.
+- Added smooth admin-tab and authentication-mode transitions.
+- Added tactile hover elevation and button press feedback.
+- Added smooth anchor navigation.
+- Added full `prefers-reduced-motion` support for accessibility.
+
+### Verification
+
+- Frontend production build passes with `npm run build`.
+- Focused frontend/backend ESLint checks pass.
+- Backend JavaScript syntax checks pass.
+- GitNexus change detection reports **medium risk**, limited to expected authentication, dashboard, user, and printer execution flows.
+
 ## Latest Changes (Admin Dashboard & Dynamic Costing)
 
 ### Backend Enhancements

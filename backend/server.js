@@ -16,6 +16,7 @@ import liveRoutes from './routes/live.js';
 import userRoutes from './routes/users.js';
 import Printer from './models/Printer.js';
 import Material from './models/Material.js';
+import printerCatalog from './data/printerCatalog.js';
 
 const app = express();
 const uploadsDirectory = path.resolve('uploads');
@@ -36,6 +37,7 @@ mongoose
     console.log('✅ MongoDB Connected Successfully');
     await seedAdminUser();
     await seedPrinterData();
+    await seedPrinterCatalog();
     await seedMaterialData();
   })
   .catch((err) => {
@@ -136,6 +138,19 @@ async function seedPrinterData() {
 
   await Printer.insertMany(printers);
   console.log('✅ Default printers seeded');
+}
+
+async function seedPrinterCatalog() {
+  await Promise.all(
+    printerCatalog.map((printer) =>
+      Printer.findOneAndUpdate(
+        { id: printer.id },
+        { $setOnInsert: { ...printer, status: 'Available' } },
+        { upsert: true },
+      ),
+    ),
+  );
+  console.log('Printer catalog synchronized');
 }
 
 async function seedMaterialData() {

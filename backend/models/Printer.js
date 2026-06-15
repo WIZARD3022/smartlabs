@@ -17,6 +17,12 @@ const printerSchema = new mongoose.Schema({
   statusMessage: { type: String, default: 'Ready for new job' },
   fileInfo: { type: String, default: 'No active file' },
   user: { type: String, default: '' },
+  inventoryCode: { type: String, default: '' },
+  manufacturer: { type: String, default: '' },
+  apiProvider: { type: String, default: 'manual' },
+  ipAddress: { type: String, default: '' },
+  serialNumber: { type: String, default: '' },
+  accessCode: { type: String, default: '', select: false },
 });
 
 export default mongoose.model('Printer', printerSchema);

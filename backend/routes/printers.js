@@ -1,5 +1,6 @@
 import express from 'express';
 import Printer from '../models/Printer.js';
+import { getBambuStatus } from '../services/bambuBridge.js';
 
 const router = express.Router();
 
@@ -63,10 +64,34 @@ router.post('/:printerId/control', async (req, res) => {
   res.json({ printer: updatedPrinter });
 });
 
+router.post('/:printerId/sync', async (req, res) => {
+  try {
+    const printer = await Printer.findOne({ id: req.params.printerId }).select('+accessCode');
+    if (!printer) {
+      return res.status(404).json({ message: 'Printer not found' });
+    }
+    if (printer.apiProvider !== 'bambulabs-api') {
+      return res.status(400).json({ message: 'This printer is not configured for the Bambu Labs API' });
+    }
+
+    const status = await getBambuStatus(printer);
+    printer.statusMessage = `Bambu API state: ${status.state}`;
+    printer.connection = 'Bambu Labs MQTT';
+    await printer.save();
+    const safePrinter = printer.toObject();
+    delete safePrinter.accessCode;
+    res.json({ printer: safePrinter, status });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
 router.post('/add', async (req, res) => {
   try {
     const printer = await Printer.create(req.body);
-    res.json(printer);
+    const safePrinter = printer.toObject();
+    delete safePrinter.accessCode;
+    res.json(safePrinter);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -76,7 +101,9 @@ router.put('/:id', async (req, res) => {
   try {
     const printer = await Printer.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!printer) return res.status(404).json({ error: 'Printer not found' });
-    res.json(printer);
+    const safePrinter = printer.toObject();
+    delete safePrinter.accessCode;
+    res.json(safePrinter);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

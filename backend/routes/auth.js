@@ -8,45 +8,43 @@ const router = express.Router();
 // REGISTER USER
 router.post('/register', async (req, res) => {
   try {
-    console.log('Register route hit with body:', req.body);
     const { name, email, password } = req.body;
-    console.log('Destructured values - name:', name, 'email:', email, 'password:', password);
 
-    console.log('Searching for existing user...');
-    const existingUser = await User.findOne({ email });
-    console.log('Existing user check complete:', existingUser);
-
-    if (existingUser) {
-      console.log('User already exists');
-      return res.status(400).json({
-        message: 'Email already registered'
-      });
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
     }
 
-    console.log('Hashing password...');
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log('Password hashed');
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
 
-    console.log('Creating user...');
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
       role: 'client'
     });
-    console.log('User created:', user);
 
     res.status(201).json({
-      message: 'User Registered Successfully'
+      message: 'Account created successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error) {
-    console.error('Register error full:', error);
-    console.error('Register error message:', error.message);
-    console.error('Register error stack:', error.stack);
-    res.status(500).json({
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('Register error:', error.message);
+    res.status(500).json({ message: 'Unable to create account' });
   }
 });
 
@@ -62,7 +60,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
       return res.status(400).json({

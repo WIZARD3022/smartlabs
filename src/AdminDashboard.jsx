@@ -1,5 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+
+const tabs = ['dashboard', 'materials', 'printers', 'bookings', 'users'];
+
+const emptyMaterial = {
+  name: '',
+  basePrice: 0,
+  stock: 0,
+  minStock: 0.5,
+  maxStock: 10,
+  density: 1.2,
+  colors: [],
+  stockTiers: [
+    { minStock: 0, maxStock: 2, priceMultiplier: 1.2 },
+    { minStock: 2, maxStock: 5, priceMultiplier: 1.0 },
+    { minStock: 5, maxStock: 100, priceMultiplier: 0.9 },
+  ],
+};
 
 export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -8,31 +25,11 @@ export default function AdminDashboard({ user, onLogout }) {
   const [printers, setPrinters] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [stats, setStats] = useState({ users: 0, bookings: 0, materials: 0, printers: 0 });
+  const [newMaterial, setNewMaterial] = useState(emptyMaterial);
+  const [newPrinter, setNewPrinter] = useState({ id: '', name: '', status: 'Available' });
+  const [bambuConfig, setBambuConfig] = useState({ printerId: '', ipAddress: '', serialNumber: '', accessCode: '' });
 
-  // Forms
-  const [newMaterial, setNewMaterial] = useState({
-    name: '',
-    basePrice: 0,
-    stock: 0,
-    minStock: 0.5,
-    maxStock: 10,
-    density: 1.2,
-    colors: [],
-    stockTiers: [{ minStock: 0, maxStock: 2, priceMultiplier: 1.2 }, { minStock: 2, maxStock: 5, priceMultiplier: 1.0 }, { minStock: 5, maxStock: 100, priceMultiplier: 0.9 }],
-  });
-
-  const [newPrinter, setNewPrinter] = useState({
-    id: '',
-    name: '',
-    status: 'Available',
-  });
-
-  // Load data on mount
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
+  async function fetchAllData() {
     try {
       const [usersRes, materialsRes, printersRes, bookingsRes] = await Promise.all([
         axios.get('http://localhost:5000/api/users'),
@@ -45,7 +42,6 @@ export default function AdminDashboard({ user, onLogout }) {
       setMaterials(materialsRes.data || []);
       setPrinters(printersRes.data.printers || []);
       setBookings(bookingsRes.data || []);
-
       setStats({
         users: usersRes.data?.length || 0,
         bookings: bookingsRes.data?.length || 0,
@@ -55,22 +51,18 @@ export default function AdminDashboard({ user, onLogout }) {
     } catch (error) {
       console.error('Error fetching data:', error);
     }
-  };
+  }
 
-  // Material Management
+  useEffect(() => {
+    // Keep the existing mount-time data load behavior; the async function updates state after API responses.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAllData();
+  }, []);
+
   const addMaterial = async () => {
     try {
       await axios.post('http://localhost:5000/api/materials/add', newMaterial);
-      setNewMaterial({
-        name: '',
-        basePrice: 0,
-        stock: 0,
-        minStock: 0.5,
-        maxStock: 10,
-        density: 1.2,
-        colors: [],
-        stockTiers: [{ minStock: 0, maxStock: 2, priceMultiplier: 1.2 }, { minStock: 2, maxStock: 5, priceMultiplier: 1.0 }, { minStock: 5, maxStock: 100, priceMultiplier: 0.9 }],
-      });
+      setNewMaterial(emptyMaterial);
       fetchAllData();
       alert('Material added successfully!');
     } catch (error) {
@@ -99,7 +91,6 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
-  // Printer Management
   const addPrinter = async () => {
     try {
       await axios.post('http://localhost:5000/api/printers/add', newPrinter);
@@ -123,7 +114,39 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
-  // User Management
+  const syncPrinter = async (printerId) => {
+    try {
+      await axios.post(`http://localhost:5000/api/printers/${printerId}/sync`);
+      fetchAllData();
+      alert('Printer status synchronized');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Unable to synchronize printer');
+    }
+  };
+
+  const saveBambuConfig = async () => {
+    const printer = printers.find((item) => item._id === bambuConfig.printerId);
+    if (!printer || !bambuConfig.ipAddress || !bambuConfig.serialNumber || !bambuConfig.accessCode) {
+      alert('Select a Bambu printer and enter its IP, serial number, and access code');
+      return;
+    }
+
+    try {
+      await axios.put(`http://localhost:5000/api/printers/${printer._id}`, {
+        apiProvider: 'bambulabs-api',
+        connection: 'Bambu Labs MQTT',
+        ipAddress: bambuConfig.ipAddress,
+        serialNumber: bambuConfig.serialNumber,
+        accessCode: bambuConfig.accessCode,
+      });
+      setBambuConfig({ printerId: '', ipAddress: '', serialNumber: '', accessCode: '' });
+      fetchAllData();
+      alert('Bambu connection saved');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Unable to save Bambu connection');
+    }
+  };
+
   const deleteUser = async (id) => {
     if (confirm('Delete this user? This cannot be undone.')) {
       try {
@@ -146,7 +169,6 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
-  // Booking Management
   const updateBookingStatus = async (id, status) => {
     try {
       await axios.patch(`http://localhost:5000/api/bookings/${id}/status`, { status });
@@ -169,347 +191,271 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  const metrics = useMemo(
+    () => [
+      { label: 'Users', value: stats.users, tone: 'text-sky-700', helper: 'registered accounts' },
+      { label: 'Bookings', value: stats.bookings, tone: 'text-emerald-700', helper: 'orders in system' },
+      { label: 'Materials', value: stats.materials, tone: 'text-amber-700', helper: 'filaments tracked' },
+      { label: 'Printers', value: stats.printers, tone: 'text-indigo-700', helper: 'machines online' },
+    ],
+    [stats],
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-      {/* Header */}
-      <div className="bg-slate-950 px-8 py-6 flex justify-between items-center border-b border-slate-700">
-        <div>
-          <h1 className="text-4xl font-bold text-cyan-400">Smart Lab Admin Dashboard</h1>
-          <p className="text-slate-400 mt-1">Full Lab Management & Monitoring System</p>
+    <div className="min-h-screen bg-[#eef3f7] text-slate-950">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Smart Lab console</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Admin operations</h1>
+            <p className="mt-1 text-sm text-slate-600">Signed in as {user?.name || user?.email || 'Administrator'}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+              API connected
+            </span>
+            <button
+              onClick={onLogout}
+              className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Logout
+            </button>
+          </div>
         </div>
-        <button onClick={onLogout} className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition">
-          Logout
-        </button>
-      </div>
+      </header>
 
-      {/* Stats */}
-      <div className="grid md:grid-cols-4 gap-6 p-8">
-        <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 p-6 rounded-2xl border border-cyan-500/20">
-          <h3 className="text-4xl font-bold text-cyan-400">{stats.users}</h3>
-          <p className="text-slate-400 mt-2">Total Users</p>
-        </div>
-        <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-6 rounded-2xl border border-emerald-500/20">
-          <h3 className="text-4xl font-bold text-emerald-400">{stats.bookings}</h3>
-          <p className="text-slate-400 mt-2">Total Bookings</p>
-        </div>
-        <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-6 rounded-2xl border border-orange-500/20">
-          <h3 className="text-4xl font-bold text-orange-400">{stats.materials}</h3>
-          <p className="text-slate-400 mt-2">Materials</p>
-        </div>
-        <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 p-6 rounded-2xl border border-purple-500/20">
-          <h3 className="text-4xl font-bold text-purple-400">{stats.printers}</h3>
-          <p className="text-slate-400 mt-2">Active Printers</p>
-        </div>
-      </div>
+      <main className="mx-auto max-w-7xl px-5 py-6">
+        <section className="metric-sequence grid gap-4 md:grid-cols-4">
+          {metrics.map((metric) => (
+            <div key={metric.label} className="motion-card rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">{metric.label}</p>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <strong className={`text-4xl font-semibold ${metric.tone}`}>{metric.value}</strong>
+                <span className="text-right text-xs uppercase tracking-[0.18em] text-slate-400">{metric.helper}</span>
+              </div>
+            </div>
+          ))}
+        </section>
 
-      {/* Tabs */}
-      <div className="px-8 mb-6">
-        <div className="flex gap-2 flex-wrap">
-          {['dashboard', 'materials', 'printers', 'bookings', 'users'].map((tab) => (
+        <div className="mt-6 flex gap-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+          {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${activeTab === tab ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+              className={`min-w-28 rounded-md px-4 py-2.5 text-sm font-semibold capitalize transition ${
+                activeTab === tab ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+              }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="px-8 pb-8">
-        {/* Materials Tab */}
-        {activeTab === 'materials' && (
-          <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
-            <h2 className="text-3xl font-bold mb-8">Material Management with Dynamic Costing</h2>
-
-            {/* Add Material Form */}
-            <div className="bg-slate-800/50 p-6 rounded-xl mb-8 border border-slate-700">
-              <h3 className="text-xl font-semibold mb-4">Add New Material</h3>
-              <div className="grid md:grid-cols-3 gap-4">
-                <input
-                  type="text"
-                  placeholder="Material Name"
-                  value={newMaterial.name}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Base Price (₹/KG)"
-                  value={newMaterial.basePrice}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, basePrice: parseFloat(e.target.value) })}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Stock (KG)"
-                  value={newMaterial.stock}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, stock: parseFloat(e.target.value) })}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500"
-                />
+        <section key={activeTab} className="motion-panel mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          {activeTab === 'dashboard' && (
+            <div>
+              <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">Dashboard overview</h2>
+                  <p className="mt-1 text-sm text-slate-600">A quick read on lab health, inventory, and work queue.</p>
+                </div>
+                <button onClick={fetchAllData} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">
+                  Refresh data
+                </button>
               </div>
-              <button
-                onClick={addMaterial}
-                className="mt-4 bg-cyan-500 hover:bg-cyan-600 px-6 py-3 rounded-lg font-semibold transition"
-              >
-                Add Material
-              </button>
-            </div>
 
-            {/* Materials List */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="p-4 text-left">Name</th>
-                    <th className="p-4 text-left">Base Price</th>
-                    <th className="p-4 text-left">Stock (KG)</th>
-                    <th className="p-4 text-left">Colors</th>
-                    <th className="p-4 text-left">Stock Tiers</th>
-                    <th className="p-4 text-left">Actions</th>
+              <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-base font-semibold text-slate-950">System status</h3>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {[
+                      ['Database', 'Connected'],
+                      ['API', 'Active'],
+                      ['Materials', `${stats.materials} records`],
+                      ['Printers', `${stats.printers} machines`],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-md border border-slate-200 bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white">
+                  <h3 className="text-base font-semibold">Priority actions</h3>
+                  <div className="mt-5 space-y-3 text-sm text-slate-300">
+                    <p>Review pending bookings and confirm print slots.</p>
+                    <p>Check low-stock materials before approving new quotes.</p>
+                    <p>Keep printer status current before clients upload files.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'materials' && (
+            <div>
+              <PanelTitle title="Materials" caption="Manage filament pricing, stock, and dynamic costing." />
+              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
+                <input value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} placeholder="Material name" className="form-input" />
+                <input type="number" value={newMaterial.basePrice} onChange={(e) => setNewMaterial({ ...newMaterial, basePrice: parseFloat(e.target.value) })} placeholder="Base price" className="form-input" />
+                <input type="number" value={newMaterial.stock} onChange={(e) => setNewMaterial({ ...newMaterial, stock: parseFloat(e.target.value) })} placeholder="Stock (kg)" className="form-input" />
+                <button onClick={addMaterial} className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">Add material</button>
+              </div>
+              <DataTable headers={['Name', 'Base price', 'Stock', 'Colors', 'Tiers', 'Actions']}>
+                {materials.map((mat) => (
+                  <tr key={mat._id} className="table-row">
+                    <td className="table-cell font-semibold">{mat.name}</td>
+                    <td className="table-cell">INR {mat.basePrice}</td>
+                    <td className="table-cell">
+                      <input type="number" value={mat.stock} onChange={(e) => updateMaterialStock(mat._id, parseFloat(e.target.value))} className="w-24 rounded-md border border-slate-300 px-2 py-1" />
+                    </td>
+                    <td className="table-cell">{mat.colors?.map((c) => c.colorName).join(', ') || 'None'}</td>
+                    <td className="table-cell text-xs">{mat.stockTiers?.map((t) => `${t.minStock}-${t.maxStock}kg: ${(t.priceMultiplier * 100).toFixed(0)}%`).join(' | ')}</td>
+                    <td className="table-cell"><DangerButton onClick={() => deleteMaterial(mat._id)}>Delete</DangerButton></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {materials.map((mat) => (
-                    <tr key={mat._id} className="border-b border-slate-700 hover:bg-slate-800/50 transition">
-                      <td className="p-4 font-semibold">{mat.name}</td>
-                      <td className="p-4">₹{mat.basePrice}</td>
-                      <td className="p-4">
-                        <input
-                          type="number"
-                          value={mat.stock}
-                          onChange={(e) => updateMaterialStock(mat._id, parseFloat(e.target.value))}
-                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 w-24 text-white"
-                        />
-                      </td>
-                      <td className="p-4 text-sm">{mat.colors?.map((c) => c.colorName).join(', ') || 'None'}</td>
-                      <td className="p-4 text-sm text-slate-300">
-                        {mat.stockTiers?.map((t) => `${t.minStock}-${t.maxStock}KG: ${(t.priceMultiplier * 100).toFixed(0)}%`).join(' | ')}
-                      </td>
-                      <td className="p-4">
-                        <button onClick={() => deleteMaterial(mat._id)} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition text-sm">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </DataTable>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Printers Tab */}
-        {activeTab === 'printers' && (
-          <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
-            <h2 className="text-3xl font-bold mb-8">Printer Management</h2>
-
-            {/* Add Printer Form */}
-            <div className="bg-slate-800/50 p-6 rounded-xl mb-8 border border-slate-700">
-              <h3 className="text-xl font-semibold mb-4">Add New Printer</h3>
-              <div className="grid md:grid-cols-3 gap-4">
-                <input
-                  type="text"
-                  placeholder="Printer ID"
-                  value={newPrinter.id}
-                  onChange={(e) => setNewPrinter({ ...newPrinter, id: e.target.value })}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Printer Name"
-                  value={newPrinter.name}
-                  onChange={(e) => setNewPrinter({ ...newPrinter, name: e.target.value })}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500"
-                />
-                <select
-                  value={newPrinter.status}
-                  onChange={(e) => setNewPrinter({ ...newPrinter, status: e.target.value })}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white"
-                >
+          {activeTab === 'printers' && (
+            <div>
+              <PanelTitle title="Printers" caption="Register machines and keep availability accurate." />
+              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
+                <input value={newPrinter.id} onChange={(e) => setNewPrinter({ ...newPrinter, id: e.target.value })} placeholder="Printer ID" className="form-input" />
+                <input value={newPrinter.name} onChange={(e) => setNewPrinter({ ...newPrinter, name: e.target.value })} placeholder="Printer name" className="form-input md:col-span-2" />
+                <select value={newPrinter.status} onChange={(e) => setNewPrinter({ ...newPrinter, status: e.target.value })} className="form-input">
                   <option>Available</option>
                   <option>Printing</option>
                   <option>Maintenance</option>
                 </select>
+                <button onClick={addPrinter} className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 md:col-start-4">Add printer</button>
               </div>
-              <button
-                onClick={addPrinter}
-                className="mt-4 bg-cyan-500 hover:bg-cyan-600 px-6 py-3 rounded-lg font-semibold transition"
-              >
-                Add Printer
-              </button>
-            </div>
-
-            {/* Printers List */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="p-4 text-left">Name</th>
-                    <th className="p-4 text-left">ID</th>
-                    <th className="p-4 text-left">Status</th>
-                    <th className="p-4 text-left">Progress</th>
-                    <th className="p-4 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {printers.map((printer) => (
-                    <tr key={printer._id} className="border-b border-slate-700 hover:bg-slate-800/50 transition">
-                      <td className="p-4 font-semibold">{printer.name}</td>
-                      <td className="p-4">{printer.id}</td>
-                      <td className="p-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            printer.status === 'Available' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-orange-500/20 text-orange-300'
-                          }`}
-                        >
-                          {printer.status}
-                        </span>
-                      </td>
-                      <td className="p-4">{printer.progress || 0}%</td>
-                      <td className="p-4">
-                        <button onClick={() => deletePrinter(printer._id)} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition text-sm">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
+              <div className="mt-4 grid gap-3 rounded-lg border border-cyan-200 bg-cyan-50 p-4 md:grid-cols-5">
+                <select value={bambuConfig.printerId} onChange={(e) => setBambuConfig({ ...bambuConfig, printerId: e.target.value })} className="form-input">
+                  <option value="">Select Bambu printer</option>
+                  {printers.filter((printer) => printer.manufacturer === 'Bambu Lab' || printer.apiProvider === 'bambulabs-api').map((printer) => (
+                    <option key={printer._id} value={printer._id}>{printer.name}</option>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Bookings Tab */}
-        {activeTab === 'bookings' && (
-          <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
-            <h2 className="text-3xl font-bold mb-8">Booking Management</h2>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="p-4 text-left">User</th>
-                    <th className="p-4 text-left">Printer</th>
-                    <th className="p-4 text-left">Material</th>
-                    <th className="p-4 text-left">Status</th>
-                    <th className="p-4 text-left">Cost (₹)</th>
-                    <th className="p-4 text-left">Date</th>
-                    <th className="p-4 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking._id} className="border-b border-slate-700 hover:bg-slate-800/50 transition">
-                      <td className="p-4">{booking.user}</td>
-                      <td className="p-4">{booking.printer}</td>
-                      <td className="p-4">{booking.material}</td>
-                      <td className="p-4">
-                        <select
-                          value={booking.status}
-                          onChange={(e) => updateBookingStatus(booking._id, e.target.value)}
-                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
-                        >
-                          <option>pending</option>
-                          <option>confirmed</option>
-                          <option>completed</option>
-                          <option>cancelled</option>
-                        </select>
-                      </td>
-                      <td className="p-4 font-semibold">₹{booking.quote?.totalCost || 0}</td>
-                      <td className="p-4 text-sm">{booking.date}</td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => deleteBooking(booking._id)}
-                          className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition text-sm"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
-            <h2 className="text-3xl font-bold mb-8">User Management</h2>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="p-4 text-left">Name</th>
-                    <th className="p-4 text-left">Email</th>
-                    <th className="p-4 text-left">Role</th>
-                    <th className="p-4 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u._id} className="border-b border-slate-700 hover:bg-slate-800/50 transition">
-                      <td className="p-4 font-semibold">{u.name}</td>
-                      <td className="p-4">{u.email}</td>
-                      <td className="p-4">
-                        <select
-                          value={u.role}
-                          onChange={(e) => changeUserRole(u._id, e.target.value)}
-                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white"
-                        >
-                          <option>admin</option>
-                          <option>client</option>
-                        </select>
-                      </td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => deleteUser(u._id)}
-                          className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={u.email === 'admin@smartlab.com'}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && (
-          <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
-            <h2 className="text-3xl font-bold mb-6">Dashboard Overview</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700">
-                <h3 className="text-xl font-semibold mb-4 text-cyan-400">✅ System Status</h3>
-                <p className="text-slate-300 mb-2">🔗 Database: Connected</p>
-                <p className="text-slate-300 mb-2">🚀 API: Active</p>
-                <p className="text-slate-300 mb-2">📦 Materials: {stats.materials}</p>
-                <p className="text-slate-300">🖨️ Printers: {stats.printers}</p>
+                </select>
+                <input value={bambuConfig.ipAddress} onChange={(e) => setBambuConfig({ ...bambuConfig, ipAddress: e.target.value })} placeholder="Printer IP" className="form-input" />
+                <input value={bambuConfig.serialNumber} onChange={(e) => setBambuConfig({ ...bambuConfig, serialNumber: e.target.value })} placeholder="Serial number" className="form-input" />
+                <input type="password" value={bambuConfig.accessCode} onChange={(e) => setBambuConfig({ ...bambuConfig, accessCode: e.target.value })} placeholder="Access code" className="form-input" />
+                <button onClick={saveBambuConfig} className="rounded-lg bg-cyan-700 px-4 py-3 text-sm font-semibold text-white hover:bg-cyan-800">Save connection</button>
               </div>
-              <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700">
-                <h3 className="text-xl font-semibold mb-4 text-cyan-400">📋 Quick Actions</h3>
-                <p className="text-slate-300 mb-4">Full admin control available:</p>
-                <ul className="text-slate-400 space-y-2 text-sm">
-                  <li>✓ Dynamic material costing (material, color, stock)</li>
-                  <li>✓ Stock-based pricing tiers</li>
-                  <li>✓ Printer fleet management</li>
-                  <li>✓ Booking & order control</li>
-                  <li>✓ User role management</li>
-                </ul>
-              </div>
+              <DataTable headers={['Name', 'Inventory ID', 'Connection', 'Status', 'Progress', 'Actions']}>
+                {printers.map((printer) => (
+                  <tr key={printer._id} className="table-row">
+                    <td className="table-cell font-semibold">{printer.name}</td>
+                    <td className="table-cell">{printer.inventoryCode || printer.id}</td>
+                    <td className="table-cell">
+                      <span className="text-xs font-semibold text-slate-600">{printer.connection || 'Manual'}</span>
+                    </td>
+                    <td className="table-cell"><StatusPill status={printer.status} /></td>
+                    <td className="table-cell">{printer.progress || 0}%</td>
+                    <td className="table-cell">
+                      <div className="flex gap-2">
+                        {printer.apiProvider === 'bambulabs-api' && (
+                          <button onClick={() => syncPrinter(printer.id)} className="rounded-md bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-100">
+                            Sync
+                          </button>
+                        )}
+                        <DangerButton onClick={() => deletePrinter(printer._id)}>Delete</DangerButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </DataTable>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+
+          {activeTab === 'bookings' && (
+            <div>
+              <PanelTitle title="Bookings" caption="Approve, complete, or cancel active fabrication work." />
+              <DataTable headers={['User', 'Printer', 'Material', 'Status', 'Cost', 'Date', 'Actions']}>
+                {bookings.map((booking) => (
+                  <tr key={booking._id} className="table-row">
+                    <td className="table-cell">{booking.user}</td>
+                    <td className="table-cell">{booking.printer}</td>
+                    <td className="table-cell">{booking.material}</td>
+                    <td className="table-cell">
+                      <select value={booking.status} onChange={(e) => updateBookingStatus(booking._id, e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+                        <option>pending</option>
+                        <option>confirmed</option>
+                        <option>completed</option>
+                        <option>cancelled</option>
+                      </select>
+                    </td>
+                    <td className="table-cell font-semibold">INR {booking.quote?.totalCost || 0}</td>
+                    <td className="table-cell">{booking.date}</td>
+                    <td className="table-cell"><DangerButton onClick={() => deleteBooking(booking._id)}>Delete</DangerButton></td>
+                  </tr>
+                ))}
+              </DataTable>
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div>
+              <PanelTitle title="Users" caption="Control access for clients and operators." />
+              <DataTable headers={['Name', 'Email', 'Role', 'Actions']}>
+                {users.map((u) => (
+                  <tr key={u._id} className="table-row">
+                    <td className="table-cell font-semibold">{u.name}</td>
+                    <td className="table-cell">{u.email}</td>
+                    <td className="table-cell">
+                      <select value={u.role} onChange={(e) => changeUserRole(u._id, e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+                        <option>admin</option>
+                        <option>client</option>
+                      </select>
+                    </td>
+                    <td className="table-cell">
+                      <DangerButton onClick={() => deleteUser(u._id)} disabled={u.email === 'admin@smartlab.com'}>Delete</DangerButton>
+                    </td>
+                  </tr>
+                ))}
+              </DataTable>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
+  );
+}
+
+function PanelTitle({ title, caption }) {
+  return (
+    <div className="mb-5 border-b border-slate-200 pb-4">
+      <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+      <p className="mt-1 text-sm text-slate-600">{caption}</p>
+    </div>
+  );
+}
+
+function DataTable({ headers, children }) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full min-w-[760px] border-collapse bg-white text-sm">
+        <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
+          <tr>{headers.map((header) => <th key={header} className="px-4 py-3 font-semibold">{header}</th>)}</tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function StatusPill({ status }) {
+  const tone = status === 'Available' ? 'bg-emerald-50 text-emerald-700' : status === 'Printing' ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700';
+  return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{status}</span>;
+}
+
+function DangerButton({ children, ...props }) {
+  return (
+    <button {...props} className="rounded-md bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50">
+      {children}
+    </button>
   );
 }

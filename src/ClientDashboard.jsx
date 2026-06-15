@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const defaultSlots = [
   { time: '09:00 AM - 11:00 AM', status: 'Booked' },
@@ -18,13 +18,13 @@ export default function ClientDashboard({ user, token, onLogout }) {
   const [quote, setQuote] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [selectedMaterial, setSelectedMaterial] = useState('PLA+');
-  const [selectedSlot, setSelectedSlot] = useState(defaultSlots[1].time);
+  const [selectedSlot] = useState(defaultSlots[1].time);
   const [bookingStatus, setBookingStatus] = useState('');
   const [printerControlStatus, setPrinterControlStatus] = useState('');
-  const [connectionMethod, setConnectionMethod] = useState('local');
+  const [connectionMethod] = useState('local');
   const [loading, setLoading] = useState(false);
 
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
   useEffect(() => {
     async function loadMaterials() {
@@ -189,10 +189,10 @@ export default function ClientDashboard({ user, token, onLogout }) {
       <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">Client dashboard</p>
+            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">User dashboard</p>
             <h1 className="mt-3 text-4xl font-semibold text-white">Hi, {user?.name || 'Fabrication Client'}</h1>
             <p className="mt-3 max-w-2xl text-slate-400">
-              Your STL upload, quote, booking, and live printer feed workflow is ready.
+              Upload a model, review its quote, reserve a slot, and follow your printer live.
             </p>
           </div>
           <button
@@ -205,21 +205,21 @@ export default function ClientDashboard({ user, token, onLogout }) {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-10">
-        <section className="grid gap-6 xl:grid-cols-4 mb-10">
+        <section className="metric-sequence grid gap-6 xl:grid-cols-4 mb-10">
           {[
             { label: 'Available', value: availableCount, tone: 'text-emerald-300' },
             { label: 'Printing', value: printingCount, tone: 'text-cyan-300' },
             { label: 'Paused', value: pausedCount, tone: 'text-amber-300' },
             { label: 'Selected slot', value: selectedSlot, tone: 'text-slate-200' },
           ].map((metric) => (
-            <div key={metric.label} className="rounded-[2rem] bg-slate-900/90 p-8 ring-1 ring-slate-800 shadow-2xl shadow-slate-950/40">
+            <div key={metric.label} className="motion-card rounded-[2rem] bg-slate-900/90 p-8 ring-1 ring-slate-800 shadow-2xl shadow-slate-950/40">
               <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">{metric.label}</p>
               <p className={`mt-5 text-4xl font-semibold ${metric.tone}`}>{metric.value}</p>
             </div>
           ))}
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-3 mb-10">
+        <section className="motion-rise grid gap-6 xl:grid-cols-3 mb-10" style={{ '--motion-delay': '180ms' }}>
           <div className="rounded-[2rem] bg-slate-900/90 p-8 ring-1 ring-slate-800 shadow-2xl shadow-slate-950/40">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -244,6 +244,22 @@ export default function ClientDashboard({ user, token, onLogout }) {
                   <p className="mt-2 text-slate-400">Size: {(uploadedFile.size / 1024).toFixed(1)} KB</p>
                 </div>
               )}
+
+              <label className="block text-sm font-medium text-slate-300" htmlFor="client-material">
+                Material
+              </label>
+              <select
+                id="client-material"
+                value={selectedMaterial}
+                onChange={(event) => setSelectedMaterial(event.target.value)}
+                className="w-full rounded-3xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-white"
+              >
+                {(materials.length ? materials : [{ name: selectedMaterial }]).map((material) => (
+                  <option key={material._id || material.name} value={material.name}>
+                    {material.name}
+                  </option>
+                ))}
+              </select>
 
               {analysis && (
                 <div className="rounded-3xl bg-slate-950/95 p-5 ring-1 ring-slate-800">
@@ -345,7 +361,7 @@ export default function ClientDashboard({ user, token, onLogout }) {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-2 mb-10">
+        <section className="motion-rise grid gap-6 lg:grid-cols-2 mb-10" style={{ '--motion-delay': '280ms' }}>
           <div className="rounded-[2rem] bg-slate-900/90 p-8 ring-1 ring-slate-800 shadow-2xl shadow-slate-950/40">
             <div className="flex items-center justify-between gap-4">
               <div>
