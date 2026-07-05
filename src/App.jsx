@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AdminDashboard from './AdminDashboard';
 import ClientDashboard from './ClientDashboard';
 import heroImage from './assets/hero.png';
+import heroGIF from './assets/3D_printer.gif';
 
 const slots = [
   { time: '09:00 AM - 11:00 AM', status: 'Booked' },
@@ -135,7 +136,7 @@ export default function SmartLabPortal() {
             </div>
           </a>
           <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 md:flex">
-            <a href="#fleet" className="hover:text-slate-950">Fleet</a>
+            {/* <a href="#fleet" className="hover:text-slate-950">Fleet</a> */}
             <a href="#booking" className="hover:text-slate-950">Booking</a>
             <a href="#materials" className="hover:text-slate-950">Materials</a>
           </nav>
@@ -223,7 +224,7 @@ export default function SmartLabPortal() {
               </form>
 
               <div className="lab-scanner motion-rise overflow-hidden rounded-lg border border-slate-200 bg-slate-100 lg:order-1" style={{ '--motion-delay': '280ms' }}>
-                <img src={heroImage} alt="Smart fabrication lab" className="h-64 w-full object-cover lg:h-full" />
+                <img src={heroGIF} alt="Smart fabrication lab" className="h-64 w-full object-cover lg:h-full" />
               </div>
             </div>
           </div>
