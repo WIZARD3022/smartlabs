@@ -285,14 +285,38 @@ export default function SmartLabPortal() {
               </p>
             </div>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {/* <div className="mt-6 grid gap-3 md:grid-cols-3">
               {(materials.length ? materials.slice(0, 3) : [{ name: 'PLA+', stock: 0, basePrice: 1200 }, { name: 'PETG', stock: 0, basePrice: 1800 }, { name: 'ABS', stock: 0, basePrice: 1600 }]).map((material) => (
                 <div key={material._id || material.name} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
                   <p className="text-xl font-semibold">{material.name}</p>
                   <p className="mt-3 text-sm text-slate-400">Stock: {material.stock ?? 0} kg</p>
                   <p className="mt-1 text-sm text-slate-400">Base: INR {material.basePrice ?? material.pricePerKg ?? 0}/kg</p>
+                  <p className="mt-1 text-sm text-slate-400">Color: {material.colors ?? 'Not specified'}</p>
                 </div>
               ))}
+            </div> */}
+            <div className="mt-6">
+              {materials.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-3">
+                  {materials.slice(0, 3).map((material) => (
+                    <div key={material._id || material.name} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
+                      <p className="text-xl font-semibold">{material.name}</p>
+                      <p className="mt-3 text-sm text-slate-400">Stock: {material.stock ?? 0} kg</p>
+                      <p className="mt-1 text-sm text-slate-400">Base: INR {material.basePrice ?? material.pricePerKg ?? 0}/kg</p>
+                      <p className="mt-1 text-sm text-slate-400">
+  Color:{" "}
+  {material.colors?.length
+    ? material.colors.map((c) => c.colorName).join(", ")
+    : "Not specified"}
+</p></div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900 p-8 text-center">
+                  <h3 className="text-xl font-semibold text-white">Not Available Currently</h3>
+                  <p className="mt-2 text-slate-400">Please wait patiently. Materials list will be updated soon.</p>
+                </div>
+              )}
             </div>
           </div>
         </section>
