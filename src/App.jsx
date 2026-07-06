@@ -299,7 +299,7 @@ export default function SmartLabPortal() {
             <div className="mt-6">
               {materials.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-3">
-                  {materials.slice(0, 3).map((material) => (
+                  {materials.map((material) => (
                     <div key={material._id || material.name} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
                       <p className="text-xl font-semibold">{material.name}</p>
                       <p className="mt-3 text-sm text-slate-400">Stock: {material.stock ?? 0} kg</p>
