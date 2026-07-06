@@ -437,17 +437,13 @@ const removeColor = (index) => {
               <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
                 <input value={newPrinter.id} onChange={(e) => setNewPrinter({ ...newPrinter, id: e.target.value })} placeholder="Printer ID" className="form-input" />
                 <input value={newPrinter.name} onChange={(e) => setNewPrinter({ ...newPrinter, name: e.target.value })} placeholder="Printer name" className="form-input md:col-span-2" />
-                <select value={newPrinter.status} onChange={(e) => setNewPrinter({ ...newPrinter, status: e.target.value })} className="form-input">
-                  <option>Available</option>
-                  <option>Printing</option>
-                  <option>Maintenance</option>
-                </select>
+      
                 <button onClick={addPrinter} className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 md:col-start-4">Add printer</button>
               </div>
               <div className="mt-4 grid gap-3 rounded-lg border border-cyan-200 bg-cyan-50 p-4 md:grid-cols-5">
                 <select value={bambuConfig.printerId} onChange={(e) => setBambuConfig({ ...bambuConfig, printerId: e.target.value })} className="form-input">
-                  <option value="">Select Bambu printer</option>
-                  {printers.filter((printer) => printer.manufacturer === 'Bambu Lab' || printer.apiProvider === 'bambulabs-api').map((printer) => (
+                  <option value="">Select printer</option>
+                  {printers.map((printer) => (
                     <option key={printer._id} value={printer._id}>{printer.name}</option>
                   ))}
                 </select>
