@@ -305,11 +305,15 @@ export default function SmartLabPortal() {
                       <p className="mt-3 text-sm text-slate-400">Stock: {material.stock ?? 0} kg</p>
                       <p className="mt-1 text-sm text-slate-400">Base: INR {material.basePrice ?? material.pricePerKg ?? 0}/kg</p>
                       <p className="mt-1 text-sm text-slate-400">
-  Color:{" "}
-  {material.colors?.length
-    ? material.colors.map((c) => c.colorName).join(", ")
-    : "Not specified"}
-</p></div>
+                        {material.colors?.length ? (
+                          material.colors.map((c, index) => (
+                            <span key={index} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium" style={{backgroundColor: c.colorName.toLowerCase(),color: ["white", "black", "yellow", "lime", "cyan"].includes( c.colorName.toLowerCase())? "#000": "#fff",}}></span>
+                          ))
+                        ) : (
+                          <span className="text-slate-400">None</span>
+                        )}
+                      </p>
+                    </div>
                   ))}
                 </div>
               ) : (
