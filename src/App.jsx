@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AdminDashboard from './AdminDashboard';
 import ClientDashboard from './ClientDashboard';
 import heroImage from './assets/hero.png';
+import heroGIF from './assets/3D_printer.gif';
 
 const slots = [
   { time: '09:00 AM - 11:00 AM', status: 'Booked' },
@@ -135,7 +136,7 @@ export default function SmartLabPortal() {
             </div>
           </a>
           <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 md:flex">
-            <a href="#fleet" className="hover:text-slate-950">Fleet</a>
+            {/* <a href="#fleet" className="hover:text-slate-950">Fleet</a> */}
             <a href="#booking" className="hover:text-slate-950">Booking</a>
             <a href="#materials" className="hover:text-slate-950">Materials</a>
           </nav>
@@ -223,7 +224,7 @@ export default function SmartLabPortal() {
               </form>
 
               <div className="lab-scanner motion-rise overflow-hidden rounded-lg border border-slate-200 bg-slate-100 lg:order-1" style={{ '--motion-delay': '280ms' }}>
-                <img src={heroImage} alt="Smart fabrication lab" className="h-64 w-full object-cover lg:h-full" />
+                <img src={heroGIF} alt="Smart fabrication lab" className="h-64 w-full object-cover lg:h-full" />
               </div>
             </div>
           </div>
@@ -285,14 +286,32 @@ export default function SmartLabPortal() {
               </p>
             </div>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
-              {(materials.length ? materials.slice(0, 3) : [{ name: 'PLA+', stock: 0, basePrice: 1200 }, { name: 'PETG', stock: 0, basePrice: 1800 }, { name: 'ABS', stock: 0, basePrice: 1600 }]).map((material) => (
-                <div key={material._id || material.name} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
-                  <p className="text-xl font-semibold">{material.name}</p>
-                  <p className="mt-3 text-sm text-slate-400">Stock: {material.stock ?? 0} kg</p>
-                  <p className="mt-1 text-sm text-slate-400">Base: INR {material.basePrice ?? material.pricePerKg ?? 0}/kg</p>
+            <div className="mt-6">
+              {materials.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-3">
+                  {materials.map((material) => (
+                    <div key={material._id || material.name} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
+                      <p className="text-xl font-semibold">{material.name}</p>
+                      <p className="mt-3 text-sm text-slate-400">Stock: {material.stock ?? 0} kg</p>
+                      <p className="mt-1 text-sm text-slate-400">Base: INR {material.basePrice ?? material.pricePerKg ?? 0}/kg</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {material.colors?.length ? (
+                          material.colors.map((c, index) => (
+                            <span key={index} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium" style={{backgroundColor: c.colorName.toLowerCase(),color: ["white", "black", "yellow", "lime", "cyan"].includes( c.colorName.toLowerCase())? "#000": "#fff",}}></span>
+                          ))
+                        ) : (
+                          <span className="text-slate-400">None</span>
+                        )}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900 p-8 text-center">
+                  <h3 className="text-xl font-semibold text-white">Not Available Currently</h3>
+                  <p className="mt-2 text-slate-400">Please wait patiently. Materials list will be updated soon.</p>
+                </div>
+              )}
             </div>
           </div>
         </section>

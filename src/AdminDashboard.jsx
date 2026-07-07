@@ -21,6 +21,7 @@ const emptyMaterial = {
 export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [users, setUsers] = useState([]);
+  const [colorInput, setColorInput] = useState("");
   const [materials, setMaterials] = useState([]);
   const [printers, setPrinters] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -191,6 +192,42 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  const addColor = () => {
+  const color = colorInput.trim();
+
+  if (!color) return;
+
+  // Prevent duplicate colors
+  if (
+    newMaterial.colors.some(
+      (c) => c.colorName.toLowerCase() === color.toLowerCase()
+    )
+  ) {
+    alert("Color already exists.");
+    return;
+  }
+
+  setNewMaterial({
+    ...newMaterial,
+    colors: [
+      ...newMaterial.colors,
+      {
+        colorName: color,
+        surcharge: 0,
+      },
+    ],
+  });
+
+  setColorInput("");
+};
+
+const removeColor = (index) => {
+  setNewMaterial({
+    ...newMaterial,
+    colors: newMaterial.colors.filter((_, i) => i !== index),
+  });
+};
+
   const metrics = useMemo(
     () => [
       { label: 'Users', value: stats.users, tone: 'text-sky-700', helper: 'registered accounts' },
@@ -297,11 +334,74 @@ export default function AdminDashboard({ user, onLogout }) {
           {activeTab === 'materials' && (
             <div>
               <PanelTitle title="Materials" caption="Manage filament pricing, stock, and dynamic costing." />
-              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
-                <input value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} placeholder="Material name" className="form-input" />
-                <input type="number" value={newMaterial.basePrice} onChange={(e) => setNewMaterial({ ...newMaterial, basePrice: parseFloat(e.target.value) })} placeholder="Base price" className="form-input" />
-                <input type="number" value={newMaterial.stock} onChange={(e) => setNewMaterial({ ...newMaterial, stock: parseFloat(e.target.value) })} placeholder="Stock (kg)" className="form-input" />
-                <button onClick={addMaterial} className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">Add material</button>
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-slate-800">Add New Material</h2>
+                <p className="mt-1 text-sm text-slate-500">Fill in the material details and available colors.</p>
+                <div className="mt-6 grid gap-5 md:grid-cols-3">
+                  {/* Material Name */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Material Name</label>
+                    <input type="text" value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} placeholder="e.g. PLA+" className="form-input w-full"/>
+                  </div>
+                  {/* Base Price */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Base Price (₹ / kg)</label>
+                    <input type="number" value={newMaterial.basePrice} onChange={(e) => setNewMaterial({ ...newMaterial, basePrice: parseFloat(e.target.value) || 0, }) } placeholder="1200" className="form-input w-full" />
+                  </div>
+                  {/* Stock */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700"> Available Stock (kg) </label>
+                    <input type="number" value={newMaterial.stock} onChange={(e) => setNewMaterial({ ...newMaterial, stock: parseFloat(e.target.value) || 0, }) } placeholder="10" className="form-input w-full"/>
+                  </div>
+                  {/* Density */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700"> Density (g/cm³) </label>
+                    <input type="number" step="0.01" value={newMaterial.density} onChange={(e) => setNewMaterial({ ...newMaterial, density: parseFloat(e.target.value) || 0, }) }  placeholder="1.24" className="form-input w-full"/>
+                  </div> 
+                  {/* Minimum Stock */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700"> Minimum Stock Alert </label>
+                    <input type="number" value={newMaterial.minStock} onChange={(e) => setNewMaterial({ ...newMaterial, minStock: parseFloat(e.target.value) || 0, }) } className="form-input w-full" />
+                  </div> 
+                  {/* Maximum Stock */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700"> Maximum Stock </label>
+                    <input type="number" value={newMaterial.maxStock} onChange={(e) => setNewMaterial({ ...newMaterial, maxStock: parseFloat(e.target.value) || 0, }) } placeholder="10" className="form-input w-full" />
+                  </div> 
+                </div> 
+                {/* Colors */}
+                <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-800"> Material Colors </h3>
+                      <p className="text-sm text-slate-500"> Add all colors available for this material. </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-3">
+                    <input type="text" value={colorInput} onChange={(e) => setColorInput(e.target.value)} placeholder="Enter color name" className="form-input flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); addColor(); } 
+                      }} />
+                    <button type="button" onClick={addColor} className="rounded-lg bg-blue-600 px-5 font-medium text-white hover:bg-blue-700">+ Add Color </button>
+                  </div>
+                  {newMaterial.colors.length > 0 ? (
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {newMaterial.colors.map((color, index) => (
+                        <div key={index} className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-sm">
+                          <span className="h-3 w-3 rounded-full border" style={{backgroundColor: color.colorName.toLowerCase(),}} />
+                          <span className="font-medium">{color.colorName}</span>
+                          <button type="button" onClick={() => removeColor(index)} className="text-red-500 hover:text-red-700" >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-500"> No colors added yet. </div>
+                  )}
+                </div>
+                {/* Submit */}
+                <div className="mt-8 flex justify-end">
+                  <button onClick={addMaterial} className="rounded-lg bg-slate-900 px-8 py-3 text-sm font-semibold text-white transition hover:bg-slate-800" >Add Material</button>
+                </div>
               </div>
               <DataTable headers={['Name', 'Base price', 'Stock', 'Colors', 'Tiers', 'Actions']}>
                 {materials.map((mat) => (
@@ -311,7 +411,18 @@ export default function AdminDashboard({ user, onLogout }) {
                     <td className="table-cell">
                       <input type="number" value={mat.stock} onChange={(e) => updateMaterialStock(mat._id, parseFloat(e.target.value))} className="w-24 rounded-md border border-slate-300 px-2 py-1" />
                     </td>
-                    <td className="table-cell">{mat.colors?.map((c) => c.colorName).join(', ') || 'None'}</td>
+                    <td className="table-cell">
+                      <div className="flex flex-wrap gap-2">
+                        {mat.colors?.length ? (
+                          mat.colors.map((c, index) => (
+                            <span key={index} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium"
+                              style={{backgroundColor: c.colorName.toLowerCase(),color: ["white", "black", "yellow", "lime", "cyan"].includes( c.colorName.toLowerCase())? "#000": "#fff",}}></span>
+                          ))
+                        ) : (
+                          <span className="text-slate-400">None</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="table-cell text-xs">{mat.stockTiers?.map((t) => `${t.minStock}-${t.maxStock}kg: ${(t.priceMultiplier * 100).toFixed(0)}%`).join(' | ')}</td>
                     <td className="table-cell"><DangerButton onClick={() => deleteMaterial(mat._id)}>Delete</DangerButton></td>
                   </tr>
@@ -326,17 +437,13 @@ export default function AdminDashboard({ user, onLogout }) {
               <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
                 <input value={newPrinter.id} onChange={(e) => setNewPrinter({ ...newPrinter, id: e.target.value })} placeholder="Printer ID" className="form-input" />
                 <input value={newPrinter.name} onChange={(e) => setNewPrinter({ ...newPrinter, name: e.target.value })} placeholder="Printer name" className="form-input md:col-span-2" />
-                <select value={newPrinter.status} onChange={(e) => setNewPrinter({ ...newPrinter, status: e.target.value })} className="form-input">
-                  <option>Available</option>
-                  <option>Printing</option>
-                  <option>Maintenance</option>
-                </select>
+      
                 <button onClick={addPrinter} className="rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 md:col-start-4">Add printer</button>
               </div>
               <div className="mt-4 grid gap-3 rounded-lg border border-cyan-200 bg-cyan-50 p-4 md:grid-cols-5">
                 <select value={bambuConfig.printerId} onChange={(e) => setBambuConfig({ ...bambuConfig, printerId: e.target.value })} className="form-input">
-                  <option value="">Select Bambu printer</option>
-                  {printers.filter((printer) => printer.manufacturer === 'Bambu Lab' || printer.apiProvider === 'bambulabs-api').map((printer) => (
+                  <option value="">Select printer</option>
+                  {printers.map((printer) => (
                     <option key={printer._id} value={printer._id}>{printer.name}</option>
                   ))}
                 </select>
