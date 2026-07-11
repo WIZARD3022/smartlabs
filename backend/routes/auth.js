@@ -34,6 +34,9 @@ router.post('/register', async (req, res) => {
       role: 'client'
     });
 
+    req.session.userId = user._id;
+    req.session.userRole = user.role;
+
     res.status(201).json({
       message: 'Account created successfully',
       user: {

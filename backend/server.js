@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import User from './models/User.js';
+import session from "express-session";
 
 import authRoutes from './routes/auth.js';
 import materialRoutes from './routes/materials.js';
@@ -26,10 +27,23 @@ if (!fs.existsSync(uploadsDirectory)) {
   fs.mkdirSync(uploadsDirectory, { recursive: true });
 }
 
-// Middleware
-app.use(cors());
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true
+}));
 app.use(express.json());
 app.use('/uploads', express.static(uploadsDirectory));
+app.use(
+    session({
+        secret: "mysecretkey",
+        resave: false,
+        saveUninitialized: true,
+        cookie: {
+            maxAge: 1000 * 60 * 10, // 10 minutes
+        },
+    })
+);
+
 
 // MongoDB Connection
 mongoose
