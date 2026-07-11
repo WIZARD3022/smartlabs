@@ -17,6 +17,7 @@ import userRoutes from './routes/users.js';
 import Printer from './models/Printer.js';
 import Material from './models/Material.js';
 import printerCatalog from './data/printerCatalog.js';
+import CaptchaRoutes from './routes/Captcha.js';
 
 const app = express();
 const uploadsDirectory = path.resolve('uploads');
@@ -185,6 +186,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/printers', printerRoutes);
 app.use('/api/quote', quoteRoutes);
 app.use('/api/live', liveRoutes);
+app.use("/api/captcha", CaptchaRoutes);
 
 // Start Server
 app.listen(5000, () => {

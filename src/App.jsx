@@ -24,9 +24,15 @@ export default function SmartLabPortal() {
   const [token, setToken] = useState('');
   const [printers, setPrinters] = useState([]);
   const [materials, setMaterials] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [code, setCode] = useState('');
   const [bookings, setBookings] = useState([]);
+  const [captchaQuestion, setCaptchaQuestion] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
 
   useEffect(() => {
+    loadCaptcha();
     async function loadDashboardData() {
       try {
         const [printerRes, materialRes, bookingRes] = await Promise.all([
@@ -46,12 +52,42 @@ export default function SmartLabPortal() {
     loadDashboardData();
   }, []);
 
+  const loadCaptcha = async () => {
+  try {
+    const res = await axios.get(
+      "http://localhost:5000/api/captcha",
+      {
+        withCredentials: true,
+      }
+    );
+
+    setCaptchaQuestion(res.data.question);
+    setCaptchaAnswer("");
+  } catch (err) {
+    console.log(err);
+  }};
+
   const loginUser = async (event) => {
     event?.preventDefault();
     setLoginStatus('');
 
     if (!email || !password) {
       setLoginStatus('Enter your email and password to continue.');
+      return;
+    }
+
+    try {
+      const captcha = await axios.post("http://localhost:5000/api/captcha/verify",
+        {answer: captchaAnswer,},{withCredentials: true,});
+      if (!captcha.data.success) {
+        setLoginStatus("Incorrect captcha");
+        loadCaptcha();
+        return;
+      }
+
+    } catch (err) {
+      setLoginStatus("Incorrect captcha");
+      loadCaptcha();
       return;
     }
 
