@@ -20,7 +20,13 @@ required: true
 role: {
 type: String,
 default: 'client'
-}
+}, 
+
+resetCode: {
+type: String,
+default: null
+},
+
 });
 
 export default mongoose.model('User', userSchema);

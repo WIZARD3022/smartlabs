@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import User from './models/User.js';
+import session from "express-session";
 
 import authRoutes from './routes/auth.js';
 import materialRoutes from './routes/materials.js';
@@ -17,6 +18,7 @@ import userRoutes from './routes/users.js';
 import Printer from './models/Printer.js';
 import Material from './models/Material.js';
 import printerCatalog from './data/printerCatalog.js';
+import CaptchaRoutes from './routes/Captcha.js';
 
 const app = express();
 const uploadsDirectory = path.resolve('uploads');
@@ -25,10 +27,23 @@ if (!fs.existsSync(uploadsDirectory)) {
   fs.mkdirSync(uploadsDirectory, { recursive: true });
 }
 
-// Middleware
-app.use(cors());
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true
+}));
 app.use(express.json());
 app.use('/uploads', express.static(uploadsDirectory));
+app.use(
+    session({
+        secret: "mysecretkey",
+        resave: false,
+        saveUninitialized: true,
+        cookie: {
+            maxAge: 1000 * 60 * 10, // 10 minutes
+        },
+    })
+);
+
 
 // MongoDB Connection
 mongoose
@@ -185,6 +200,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/printers', printerRoutes);
 app.use('/api/quote', quoteRoutes);
 app.use('/api/live', liveRoutes);
+app.use("/api/captcha", CaptchaRoutes);
 
 // Start Server
 app.listen(5000, () => {
