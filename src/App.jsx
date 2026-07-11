@@ -4,6 +4,7 @@ import AdminDashboard from './AdminDashboard';
 import ClientDashboard from './ClientDashboard';
 import heroImage from './assets/hero.png';
 import heroGIF from './assets/3D_printer.gif';
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const slots = [
   { time: '09:00 AM - 11:00 AM', status: 'Booked' },
@@ -132,6 +133,63 @@ export default function SmartLabPortal() {
     setLoginStatus('');
   };
 
+  const SendCode = async (event) => {
+    event.preventDefault();
+    setLoginStatus('');
+
+    if (!email) {
+      setLoginStatus('Enter your registered email address to receive a password reset code.');
+      return;
+    }   
+    try {
+
+      const captcha = await axios.post(
+        "http://localhost:5000/api/captcha/verify",
+        {
+          answer: captchaAnswer,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (!captcha.data.success) {
+        setLoginStatus("Incorrect captcha");
+        loadCaptcha();
+        return;
+      }
+
+    } catch (err) {
+      setLoginStatus("Incorrect captcha");
+      loadCaptcha();
+      return;
+    }
+    try {
+      const res = await axios.post('http://localhost:5000/api/auth/send-reset-code', { email });
+      setLoginStatus(res.data.message || 'Verification code sent to your email.');
+    } catch (error) {
+      setLoginStatus(error.response?.data?.message || 'Failed to send verification code.');
+    }
+
+  };
+
+
+  const setNewPassword = async (event) => {
+    event.preventDefault();
+    setLoginStatus('');
+    if (!email || !code || !password) {
+      setLoginStatus('Please fill in all fields.');
+      return;
+    }
+    try {
+      const res = await axios.post('http://localhost:5000/api/auth/reset-password', { email, code, password });
+      setLoginStatus(res.data.message || 'Password reset successfully. You can now log in with your new password.');
+      setForgotPassword(false);
+    } catch (error) {
+      setLoginStatus(error.response?.data?.message || 'Password reset failed. Please check your code and try again.');
+    }
+  };
+
   const dashboardMetrics = useMemo(() => {
     const completedPrints = bookings.filter((booking) => booking.status === 'completed').length;
     return [
@@ -172,7 +230,6 @@ export default function SmartLabPortal() {
             </div>
           </a>
           <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 md:flex">
-            {/* <a href="#fleet" className="hover:text-slate-950">Fleet</a> */}
             <a href="#booking" className="hover:text-slate-950">Booking</a>
             <a href="#materials" className="hover:text-slate-950">Materials</a>
           </nav>
@@ -184,7 +241,7 @@ export default function SmartLabPortal() {
 
       <main id="top">
         <section className="relative overflow-hidden bg-white">
-          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-16">
+          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-8">
             <div className="max-w-3xl">
               <p className="motion-rise inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800" style={{ '--motion-delay': '60ms' }}>
                 Live lab scheduling, quoting, and printer monitoring
@@ -208,6 +265,7 @@ export default function SmartLabPortal() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+            {!forgotPassword ? (
               <form key={authMode} id="login" onSubmit={authMode === 'login' ? loginUser : registerUser} className="motion-rise rounded-lg border border-slate-200 bg-slate-950 p-5 text-white shadow-xl shadow-slate-200 lg:order-2" style={{ '--motion-delay': '40ms' }}>
                 <div className="grid grid-cols-2 rounded-lg bg-slate-900 p-1 text-sm">
                   <button type="button" onClick={() => { setAuthMode('login'); setLoginStatus(''); }} className={`rounded-md px-3 py-2 font-semibold ${authMode === 'login' ? 'bg-white text-slate-950' : 'text-slate-300'}`}>
@@ -233,32 +291,66 @@ export default function SmartLabPortal() {
                 )}
 
                 <label className={`${authMode === 'register' ? 'mt-4' : 'mt-6'} block text-sm font-medium text-slate-200`} htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                  placeholder="you@smartlab.com"
-                />
-
-                <label className="mt-4 block text-sm font-medium text-slate-200" htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                  placeholder="Enter password"
-                />
-
+                <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300" placeholder="you@smartlab.com"/>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-slate-200" htmlFor="password">Password</label>
+                    {authMode === 'login' && (
+                      <button type="button" onClick={() => { setForgotPassword(true); setLoginStatus(""); }} className="text-sm font-medium text-cyan-400 transition hover:text-cyan-300">Forgot Password? </button>
+                    )}
+                  </div>
+                  <div className="relative mt-2">
+                    <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 pr-12 text-white outline-none transition focus:border-cyan-300" placeholder="Enter password"/>
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-cyan-400 transition" >
+                      {showPassword ? ( <FiEyeOff size={20} /> ) : ( <FiEye size={20} /> )}
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-slate-200">Security Check</label>
+                  <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                    <span className="font-bold text-cyan-300"> {captchaQuestion}</span>
+                    <button type="button" onClick={loadCaptcha} className="text-sm text-cyan-400 hover:text-cyan-300">Refresh</button>
+                  </div>
+                  <input type="number" placeholder="Enter Answer" value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300" />
+                </div>
                 {loginStatus && <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-200">{loginStatus}</p>}
-
                 <button type="submit" className="mt-5 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200">
                   {authMode === 'login' ? 'Sign in' : 'Create account'}
                 </button>
               </form>
-
+              ) : (
+              <form className="motion-rise rounded-lg border border-slate-200 bg-slate-950 p-5 text-white shadow-xl shadow-slate-200 lg:order-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">Password Recovery</p>
+                <h2 className="mt-3 text-2xl font-semibold"> Reset your password</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-300"> Enter your registered email address and we'll send you a password reset link.</p>
+                <label htmlFor="reset-email" className="mt-6 block text-sm font-medium text-slate-200"> Email Address</label>
+                <input id="reset-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"/>
+                <button type="submit" onClick={SendCode} className="mt-3 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200"> Send Code </button>
+                <label htmlFor="code-email" className="mt-3 block text-sm font-medium text-slate-200"> Verification Code</label>
+                <input id="code-email" type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter verification code" className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"/>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-slate-200" htmlFor="password">New Password</label> 
+                  <div className="relative mt-2">
+                    <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 pr-12 text-white outline-none transition focus:border-cyan-300" placeholder="Enter password"/>
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-cyan-400 transition" >
+                      {showPassword ? ( <FiEyeOff size={20} /> ) : ( <FiEye size={20} /> )}
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" onClick={setNewPassword} className="mt-3 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200"> Reset Password </button>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-slate-200">Security Check</label>
+                  <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                    <span className="font-bold text-cyan-300">{captchaQuestion}</span>
+                    <button type="button" onClick={loadCaptcha} className="text-sm text-cyan-400 hover:text-cyan-300"> Refresh</button>
+                  </div>
+                  <input type="number" placeholder="Enter Answer" value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"/>
+                </div>
+                {loginStatus && <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-200">{loginStatus}</p>}
+                <button type="button" onClick={() => { setForgotPassword(false); setLoginStatus(""); }} className="mt-3 w-full rounded-lg border border-slate-700 px-5 py-3 font-medium text-slate-300 transition hover:border-cyan-300 hover:text-white">← Back to Login</button>
+              </form>
+              )}
               <div className="lab-scanner motion-rise overflow-hidden rounded-lg border border-slate-200 bg-slate-100 lg:order-1" style={{ '--motion-delay': '280ms' }}>
                 <img src={heroGIF} alt="Smart fabrication lab" className="h-64 w-full object-cover lg:h-full" />
               </div>

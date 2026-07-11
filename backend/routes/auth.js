@@ -146,4 +146,36 @@ router.post('/login', async (req, res) => {
   }
 });
 
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, code, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      console.log('User not found for email:', email);
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (user.resetCode != code) {
+      console.log('Invalid reset code for user:', email);
+      return res.status(400).json({ message: 'Invalid reset code.' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    user.password = hashedPassword;
+    user.resetCode = undefined;
+    await user.save();
+    console.log(`Password succesfully reset for user: ${email}`);
+    res.json({ message: 'Password reset successfully.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Failed to reset password.' });
+  }
+});
+
 export default router;
