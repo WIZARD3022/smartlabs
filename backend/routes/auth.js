@@ -3,13 +3,23 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import sendOTPEmail from './Mail.js';
+import { Registration, Completion, PasswordReset } from '../data/Email-Data.js';
 
 const router = express.Router();
 
 // REGISTER USER
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, code } = req.body;
+
+    if (!req.session.registrationCode) {
+      console.log('Registration code expired for email:', email);
+      return res.status(400).json({ message: 'Registration code expired.' });
+    }
+
+    if (req.session.registrationCode != code) {
+      return res.status(400).json({ message: 'Invalid registration code' });
+    }
 
     if (!name?.trim() || !email?.trim() || !password) {
       return res.status(400).json({ message: 'Name, email, and password are required' });
@@ -17,6 +27,26 @@ router.post('/register', async (req, res) => {
 
     if (password.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }else if (/\s/.test(password)) {
+      return res.status(400).json({
+        message: "Password cannot contain spaces."
+      });
+    }else if (!/[a-z]/.test(password)) {
+      return res.status(400).json({
+        message: "Password must contain at least one lowercase letter."
+      });
+    }else if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({
+        message: "Password must contain at least one uppercase letter."
+      });
+    }else if (!/\d/.test(password)) {
+      return res.status(400).json({
+        message: "Password must contain at least one number."
+      });
+    }else if (!/[!@#$%^&*()_\-+=\[\]{};:'",.<>/?\\|`~]/.test(password)) {
+      return res.status(400).json({
+        message: "Password must contain at least one special character."
+      });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -36,7 +66,9 @@ router.post('/register', async (req, res) => {
 
     req.session.userId = user._id;
     req.session.userRole = user.role;
-
+    const subject = 'Your Registration for SmartLab is Completed';
+    await sendOTPEmail(email, subject, Completion());
+    console.log(`Registration completion email sent to ${email}`);
     res.status(201).json({
       message: 'Account created successfully',
       user: {
@@ -53,7 +85,6 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/send-reset-code', async (req, res) => {
-  console.log('Send reset code route hit with body:', req.body.email);
   try {
     const { email } = req.body;
 
@@ -73,16 +104,14 @@ router.post('/send-reset-code', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     const subject = 'Your Password Reset Code';
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Verification Code</title></head><body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:40px 15px;"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 5px 20px rgba(0,0,0,.08);"><!-- Header --><tr><td align="center" style="background:#2563eb;padding:30px;"><h1 style="color:#ffffff;margin:0;font-size:28px;">SmartLabs</h1><p style="color:#dbeafe;margin:10px 0 0;">Email Verification</p></td></tr><!-- Body --><tr><td style="padding:40px 35px;"><h2 style="margin-top:0;color:#1e293b;">Verify Your Email</h2><p style="font-size:16px;line-height:26px;color:#475569;">Hello,</p><p style="font-size:16px;line-height:26px;color:#475569;">We received a request to verify your email address.Use the One-Time Password (OTP) below to continue.</p><!-- OTP --><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:30px 0;"><div style="display:inline-block;background:#eff6ff;border:2px dashed #2563eb;color:#2563eb;font-size:36px;letter-spacing:10px;font-weight:bold;padding:18px 35px;border-radius:10px;">${code}</div></td></tr></table><p style="font-size:16px;color:#475569;line-height:26px;">This verification code is valid for<strong>10 minutes</strong>.</p><p style="font-size:16px;color:#475569;line-height:26px;">If you didn't request this verification, you can safely ignore this email.</p></td></tr><!-- Divider --><tr><td style="padding:0 35px;"><hr style="border:none;border-top:1px solid #e2e8f0;"></td></tr><!-- Footer --><tr><td align="center" style="padding:30px;color:#64748b;font-size:14px;line-height:24px;"><strong>SmartLabs Team</strong><br><br>This is an automated email. Please do not reply.<br><br>© 2026 SmartLabs. All rights reserved.</td></tr></table></td></tr></table></body></html>`;
-    await sendOTPEmail(user.email, subject, html);
+    await sendOTPEmail(user.email, subject, PasswordReset(code));
     setTimeout(async () => {
       user.resetCode = undefined;
       await user.save();
-      console.log(`Reset code for ${user.email} cleared after 10 minutes`);
     }, 5 * 60 * 1000); // Clear the code after 10 minutes
     user.resetCode = code;
     await user.save();
-    console.log(`Reset code sent to ${user.email}: ${code}`);
+    console.log(`Reset code sent to ${user.email}`);
     res.json({ message: 'Verification code sent to your email.' });
   } catch (error) {
     console.error('Send reset code error:', error);
@@ -93,7 +122,6 @@ router.post('/send-reset-code', async (req, res) => {
 // LOGIN USER
 router.post('/login', async (req, res) => {
   try {
-    console.log('Login route hit with body:', req.body);
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -143,6 +171,36 @@ router.post('/login', async (req, res) => {
     res.status(500).json({
       message: error.message
     });
+  }
+});
+
+router.post('/send-registration-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      console.log('Email is required');
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    if (!email.includes("@gmail.com")){
+      console.log('Invalid email format:', email);
+      return res.status(400).json({ message: 'Invalid email' });
+    }
+
+    // Generate a random 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const subject = 'Your Registration Code';
+    await sendOTPEmail(email, subject, Registration(code));
+    console.log(`Registration code sent to ${email}`);
+    setTimeout(async () => {
+      req.session.registrationCode = null;
+    }, 10 * 60 * 1000); // Clear the code after 10 minutes
+    req.session.registrationCode = code;
+    res.json({ message: 'Registration code sent to your email.' });
+  } catch (error) {
+    console.error('Send registration code error:', error);
+    res.status(500).json({ message: 'Failed to send registration code.' });
   }
 });
 

@@ -114,7 +114,9 @@ export default function SmartLabPortal() {
     }
 
     try {
-      await axios.post('http://localhost:5000/api/auth/register', { name, email, password });
+      await axios.post('http://localhost:5000/api/auth/register', { name, email, password, code 
+        },
+        { withCredentials: true });
       setAuthMode('login');
       setPassword('');
       setLoginStatus('Account created. Sign in to open your user dashboard.');
@@ -133,7 +135,7 @@ export default function SmartLabPortal() {
     setLoginStatus('');
   };
 
-  const SendCode = async (event) => {
+  const SendResetpassCode = async (event) => {
     event.preventDefault();
     setLoginStatus('');
 
@@ -171,6 +173,39 @@ export default function SmartLabPortal() {
       setLoginStatus(error.response?.data?.message || 'Failed to send verification code.');
     }
 
+  };
+
+
+  const SendRegestarationCode = async (event) => {
+    event.preventDefault();
+    setLoginStatus('');
+    if (!email) {
+      setLoginStatus('Enter your email address to receive a registration code.');
+      return;
+    }
+    try {
+      const registrationCode = await axios.post(
+        "http://localhost:5000/api/auth/send-registration-code",
+        {
+          email: email,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (!registrationCode.data.message) {
+        setLoginStatus("Not able to send registration code. Please check your email and try again.");
+        return;
+      }
+      else {
+        setLoginStatus("Registration code sent to your email. Please check your inbox and enter the code to complete registration.");
+      }
+
+    } catch (err) {
+      setLoginStatus("Not able to send registration code.");
+      return;
+    }
   };
 
 
@@ -292,6 +327,13 @@ export default function SmartLabPortal() {
 
                 <label className={`${authMode === 'register' ? 'mt-4' : 'mt-6'} block text-sm font-medium text-slate-200`} htmlFor="email">Email</label>
                 <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300" placeholder="you@smartlab.com"/>
+                
+                {authMode === 'register' && (
+                  <div>
+                    <button type="submit" onClick={SendRegestarationCode} className="mt-3 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200"> Send Code </button>
+                  </div>
+                )}
+                
                 <div className="mt-4">
                   <div className="flex items-center justify-between">
                     <label className="block text-sm font-medium text-slate-200" htmlFor="password">Password</label>
@@ -306,14 +348,23 @@ export default function SmartLabPortal() {
                     </button>
                   </div>
                 </div>
+                {authMode === 'login' && (
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-slate-200">Security Check</label>
-                  <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
-                    <span className="font-bold text-cyan-300"> {captchaQuestion}</span>
-                    <button type="button" onClick={loadCaptcha} className="text-sm text-cyan-400 hover:text-cyan-300">Refresh</button>
-                  </div>
+                    <label className="block text-sm font-medium text-slate-200">Security Check</label>
+                    <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                      <span className="font-bold text-cyan-300"> {captchaQuestion}</span>
+                      <button type="button" onClick={loadCaptcha} className="text-sm text-cyan-400 hover:text-cyan-300">Refresh</button>
+                    </div>
                   <input type="number" placeholder="Enter Answer" value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300" />
                 </div>
+                )}
+                {authMode === 'register' && (
+                  <div>
+                    <label htmlFor="code-email" className="mt-3 block text-sm font-medium text-slate-200"> Verification Code</label>
+                    <input id="code-email" type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter verification code" className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"/>
+                
+                  </div>
+                )}
                 {loginStatus && <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-200">{loginStatus}</p>}
                 <button type="submit" className="mt-5 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200">
                   {authMode === 'login' ? 'Sign in' : 'Create account'}
@@ -326,7 +377,7 @@ export default function SmartLabPortal() {
                 <p className="mt-2 text-sm leading-6 text-slate-300"> Enter your registered email address and we'll send you a password reset link.</p>
                 <label htmlFor="reset-email" className="mt-6 block text-sm font-medium text-slate-200"> Email Address</label>
                 <input id="reset-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"/>
-                <button type="submit" onClick={SendCode} className="mt-3 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200"> Send Code </button>
+                <button type="submit" onClick={SendResetpassCode} className="mt-3 w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-200"> Send Code </button>
                 <label htmlFor="code-email" className="mt-3 block text-sm font-medium text-slate-200"> Verification Code</label>
                 <input id="code-email" type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter verification code" className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-cyan-300"/>
                 <div className="mt-3">
